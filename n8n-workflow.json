@@ -1,0 +1,174 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "fairrank-evaluate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1056,
+        -128
+      ],
+      "id": "0a46adf8-3a74-4e7f-8e46-77611187ef7e",
+      "name": "Webhook",
+      "webhookId": "b9a4a9d1-3ea2-481a-9179-6d205388e352"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are an AI resume analyzer.\nExtract structured information in strict JSON format.\nReturn only valid JSON.\nDo not include explanations.\n\nExtract from this resume:\n\n{{ $json.resume_text }}\n\nReturn JSON format:\n\n{\n  \"skills\": [],\n  \"years_experience\": 0,\n  \"domain\": \"\",\n  \"education_level\": \"\",\n  \"strengths\": []\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -864,
+        -112
+      ],
+      "id": "a90e7d0e-7278-4a65-8f97-3035a6cce0cd",
+      "name": "Resume Extractor",
+      "credentials": {
+        "openAiApi": {
+          "id": "hlsPouovCoLODNHd",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are an AI job requirement analyzer.\n\nExtract structured job requirements in strict JSON format.\nReturn only valid JSON.\nDo not include explanations.\n\nExtract from this job description:\n\n{{ $json.job_description }}\n\nReturn JSON format:\n\n{\n  \"required_skills\": [],\n  \"minimum_experience\": 0,\n  \"preferred_education\": \"\",\n  \"role_type\": \"\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -560,
+        -112
+      ],
+      "id": "55a6974a-30a3-4c0a-867b-68c2272b1282",
+      "name": "Job Extractor",
+      "credentials": {
+        "openAiApi": {
+          "id": "hlsPouovCoLODNHd",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get structured outputs from previous nodes\nconst resume = $node[\"Resume Extractor\"].json;\nconst job = $node[\"Job Extractor\"].json;\n\n// Safe defaults\nconst resumeSkills = (resume.skills || []).map(s => s.toLowerCase());\nconst jobSkills = (job.required_skills || []).map(s => s.toLowerCase());\n\nconst resumeExperience = resume.years_experience || 0;\nconst jobExperience = job.minimum_experience || 0;\n\nconst resumeEducation = (resume.education_level || \"\").toLowerCase();\nconst jobEducation = (job.preferred_education || \"\").toLowerCase();\n\n// -----------------------------\n// 1️⃣ Skill Matching (50% weight)\n// -----------------------------\nlet matchedSkills = jobSkills.filter(skill => resumeSkills.includes(skill));\nlet missingSkills = jobSkills.filter(skill => !resumeSkills.includes(skill));\n\nlet skillScore = jobSkills.length > 0\n  ? (matchedSkills.length / jobSkills.length) * 50\n  : 0;\n\n// -----------------------------\n// 2️⃣ Experience Matching (30% weight)\n// -----------------------------\nlet experienceScore = 0;\n\nif (resumeExperience >= jobExperience) {\n  experienceScore = 30;\n} else {\n  experienceScore = (resumeExperience / jobExperience) * 30;\n}\n\n// -----------------------------\n// 3️⃣ Education Matching (20% weight)\n// -----------------------------\nlet educationScore = 0;\n\nif (resumeEducation && jobEducation && resumeEducation.includes(jobEducation)) {\n  educationScore = 20;\n}\n\n// -----------------------------\n// Final Score\n// -----------------------------\nlet totalScore = skillScore + experienceScore + educationScore;\n\n// Bias-safe output (no name, no gender, no college prestige)\nreturn [\n  {\n    overall_score: Math.round(totalScore),\n    breakdown: {\n      skill_score: Math.round(skillScore),\n      experience_score: Math.round(experienceScore),\n      education_score: Math.round(educationScore)\n    },\n    matched_skills: matchedSkills,\n    missing_skills: missingSkills,\n    experience_gap: Math.max(0, jobExperience - resumeExperience)\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -192,
+        -80
+      ],
+      "id": "77e8e757-8b88-48d7-a25d-dc18927e25e2",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        32,
+        -96
+      ],
+      "id": "25f0a018-7db7-44f8-a732-da7394ff8484",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Resume Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resume Extractor": {
+      "main": [
+        [
+          {
+            "node": "Job Extractor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Job Extractor": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c4faf34a-b942-456e-96cb-a80851fd0043",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "25db44880aea3793b5c20c631730afcdcc1a77d2e0565fdd276a10bbd39c3208"
+  },
+  "id": "LcTxqGSz4iwhAoQM",
+  "tags": []
+}

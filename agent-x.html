@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Resume Matcher</title>
+
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.container {
+    background: #111827;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    border: none;
+    resize: vertical;
+    min-height: 120px;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+button:hover {
+    background: #4f46e5;
+}
+
+.result {
+    margin-top: 20px;
+    padding: 15px;
+    background: #1f2937;
+    border-radius: 8px;
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>AI Resume Matcher</h1>
+
+    <textarea id="resume" placeholder="Paste Resume Text..."></textarea>
+    <textarea id="job" placeholder="Paste Job Description..."></textarea>
+
+    <button onclick="submitData()">Analyze Match</button>
+
+    <div class="result" id="resultBox"></div>
+</div>
+
+<script>
+async function submitData() {
+    const resume = document.getElementById("resume").value;
+    const job = document.getElementById("job").value;
+
+    const resultBox = document.getElementById("resultBox");
+    resultBox.style.display = "block";
+    resultBox.innerHTML = "Processing...";
+
+    // ---------- FRONTEND SKILL MATCH LOGIC ----------
+    let skills = [
+        "python","javascript","html","css","react",
+        "git","node.js","bootstrap",
+        "problem solving","communication","sql"
+    ];
+
+    let resumeLower = resume.toLowerCase();
+    let jobLower = job.toLowerCase();
+
+    let matched = skills.filter(skill =>
+        resumeLower.includes(skill) && jobLower.includes(skill)
+    );
+
+    let localPercentage = Math.round((matched.length / skills.length) * 100);
+
+    // ---------- WEBHOOK CALL ----------
+    try {
+        const response = await fetch("https://neuuu116.app.n8n.cloud/webhook/fairrank-evaluate", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                resume: resume,
+                job_description: job
+            })
+        });
+
+        const data = await response.json();
+
+        resultBox.innerHTML = `
+            <h3>🔎 AI Analysis (n8n)</h3>
+            <p><strong>Overall Score:</strong> ${data.overall_score ?? "N/A"}</p>
+            <p><strong>Matched Skills (AI):</strong> 
+                ${data.matched_skills?.length ? data.matched_skills.join(", ") : "None"}
+            </p>
+
+            <hr style="margin:15px 0;">
+
+            <h3>💻 Frontend Skill Match</h3>
+            <p><strong>Skills Matched:</strong> 
+                ${matched.length ? matched.join(", ") : "None"}
+            </p>
+            <p><strong>Match Percentage:</strong> ${localPercentage}%</p>
+        `;
+
+    } catch (error) {
+        resultBox.innerHTML = `
+            <p>⚠️ Webhook failed. Showing frontend result only.</p>
+            <hr>
+            <p><strong>Skills Matched:</strong> ${matched.join(", ")}</p>
+            <p><strong>Match Percentage:</strong> ${localPercentage}%</p>
+        `;
+    }
+}
+</script>
+
+</body>
+</html>

@@ -1,234 +1,173 @@
-
-
-# 🤖 AI Resume Matcher
-
-### AI-Powered Resume Evaluation System using n8n + OpenAI
-
-An intelligent resume-to-job matching system that evaluates how well a candidate fits a job role using AI-based structured extraction and weighted scoring logic.
-
-Built using **n8n automation**, **OpenAI GPT-4o-mini**, and **custom JavaScript scoring logic**.
+# 🛡️ RakshakAI — Scam Detection Backend System
+A backend API system that classifies digital messages 
+as **Scam** or **Safe** using rule-based text analysis, 
+built with FastAPI and MySQL.
 
 ---
 
-## 📌 Project Overview
+## 🚀 Tech Stack
 
-Recruiters often manually compare resumes with job descriptions — a slow and biased process.
-
-This project automates that evaluation by:
-
-* Extracting structured data from resumes
-* Extracting structured requirements from job descriptions
-* Matching skills, experience, and education
-* Generating a weighted match score
-* Returning structured, bias-aware results
-
-This system is **stateless** and does not use a database. It processes input dynamically and returns real-time evaluation results.
+| Layer      | Technology        |
+|------------|-------------------|
+| Backend    | Python, FastAPI   |
+| Database   | MySQL             |
+| API Style  | REST (JSON)       |
+| Tools      | Git, Postman      |
 
 ---
 
-## 🏗 System Architecture
+## 📌 What It Does
 
-### Flow Overview
-
-1️⃣ User pastes:
-
-* Resume text
-* Job description
-
-2️⃣ Frontend sends data to n8n Webhook
-
-3️⃣ Resume Extractor (OpenAI GPT-4o-mini)
-
-* Extracts:
-
-  * skills
-  * years_experience
-  * domain
-  * education_level
-  * strengths
-
-4️⃣ Job Extractor (OpenAI GPT-4o-mini)
-
-* Extracts:
-
-  * required_skills
-  * minimum_experience
-  * preferred_education
-  * role_type
-
-5️⃣ JavaScript Scoring Engine (Code Node in n8n)
-
-* Matches skills
-* Compares experience
-* Checks education match
-* Calculates weighted final score
-
-6️⃣ Respond to Webhook → Result displayed in frontend
+- Accepts a message via POST request
+- Analyzes it using rule-based text detection logic
+- Returns classification: `SCAM` or `SAFE`
+- Stores result with confidence score and timestamp in MySQL
+- Built for future ML model integration
 
 ---
 
-## 🧠 Scoring Logic
-
-The scoring engine uses weighted evaluation:
-
-### 🔹 1. Skill Match — 50%
-
+## 🏗️ System Architecture
 ```
-(skill_matches / total_required_skills) * 50
-```
-
-* Identifies matched skills
-* Lists missing skills
-
----
-
-### 🔹 2. Experience Match — 30%
-
-* Full 30 points if:
-
-  ```
-  resume_experience >= required_experience
-  ```
-* Otherwise proportional score:
-
-  ```
-  (resume_experience / required_experience) * 30
-  ```
-
----
-
-### 🔹 3. Education Match — 20%
-
-* Full 20 points if resume education includes required education
-* Otherwise 0
-
----
-
-### 🔹 Final Score
-
-```
-Final Score = Skill Score + Experience Score + Education Score
-```
-
-Output example:
-
-```json
-{
-  "overall_score": 82,
-  "breakdown": {
-    "skill_score": 40,
-    "experience_score": 30,
-    "education_score": 12
-  },
-  "matched_skills": ["python", "sql"],
-  "missing_skills": ["docker"],
-  "experience_gap": 1
-}
+User Request (POST /analyze)
+        ↓
+   FastAPI Router
+        ↓
+ Detection Logic Layer
+  (Rule-based analysis)
+        ↓
+   MySQL Database
+  (Logs + Results)
+        ↓
+  JSON Response returned
 ```
 
 ---
 
 ## 📂 Project Structure
-
 ```
-AI-Resume-Matcher/
+rakshak-ai-backend/
 │
-├── agent-x.html          # Frontend UI
-├── n8n-workflow.json     # Complete AI extraction + scoring logic
-├── README.md
+├── main.py              # FastAPI app entry point
+├── models.py            # Database models
+├── schemas.py           # Pydantic API schemas
+├── detection.py         # Scam detection logic
+├── database.py          # MySQL connection setup
+├── requirements.txt     # Dependencies
+└── README.md
 ```
 
 ---
 
-## ⚙ Tech Stack
+## ⚙️ API Endpoints
 
-| Layer             | Technology                 |
-| ----------------- | -------------------------- |
-| Frontend          | HTML + CSS                 |
-| Automation Engine | n8n                        |
-| AI Model          | OpenAI GPT-4o-mini         |
-| Logic Engine      | JavaScript (n8n Code Node) |
-| Database          | None (Stateless system)    |
-
----
-
-## 🛡 Bias-Safe Design
-
-This system intentionally ignores:
-
-* Name
-* Gender
-* Age
-* College prestige
-* Personal identifiers
-
-Evaluation is based only on:
-
-* Skills
-* Experience
-* Education relevance
+| Method | Endpoint      | Description                    |
+|--------|---------------|--------------------------------|
+| GET    | /             | Health check                   |
+| POST   | /analyze      | Classify a message             |
+| GET    | /logs         | Retrieve all message logs      |
+| GET    | /logs/{id}    | Get specific message result    |
+| DELETE | /logs/{id}    | Delete a log entry             |
 
 ---
 
-## 🚀 How to Run
+## 📥 Sample Request
+```json
+POST /analyze
+{
+  "message": "Congratulations! You won a prize. 
+               Click here to claim now."
+}
+```
 
-### 1️⃣ Import Workflow
-
-* Open n8n
-* Import `n8n-workflow.json`
-* Activate workflow
-
-### 2️⃣ Setup OpenAI Credentials
-
-* Add OpenAI API key inside n8n
-
-### 3️⃣ Connect Frontend
-
-* Copy Webhook URL
-* Replace fetch endpoint in `agent-x.html`
-
-### 4️⃣ Test
-
-* Paste resume text
-* Paste job description
-* Click "Analyze Match"
-* View structured output
+## 📤 Sample Response
+```json
+{
+  "message_id": 101,
+  "classification": "SCAM",
+  "confidence_score": 0.91,
+  "timestamp": "2026-01-15T10:32:00"
+}
+```
 
 ---
 
-## 📌 Current Limitations
+## 🗄️ Database Schema
+```sql
+CREATE TABLE message_logs (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  message_text    TEXT NOT NULL,
+  classification  VARCHAR(10),
+  confidence_score FLOAT,
+  timestamp       DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-* No database (no history storage)
-* No authentication
-* No PDF upload (text only)
-* Depends on AI extraction accuracy
-* No deployed public version
+---
+
+## 🚀 How To Run Locally
+
+**1. Clone the repo**
+```bash
+git clone https://github.com/neuuu116/rakshak-ai-backend
+cd rakshak-ai-backend
+```
+
+**2. Install dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+**3. Setup MySQL**
+```bash
+# Create database
+CREATE DATABASE rakshakai;
+# Run schema file
+source schema.sql
+```
+
+**4. Run the server**
+```bash
+uvicorn main:app --reload
+```
+
+**5. Test with Postman or browser**
+```
+http://localhost:8000/docs  ← FastAPI auto docs
+```
 
 ---
 
 ## 🔮 Future Improvements
 
-* Add Supabase / PostgreSQL for storing evaluations
-* Add recruiter dashboard
-* Add PDF resume upload
-* Add analytics (top skill gaps)
-* Deploy frontend on Vercel / Netlify
-* Add multi-role batch processing
+- [ ] Integrate ML classification model
+- [ ] Add authentication (JWT)
+- [ ] Deploy on AWS EC2 / Railway
+- [ ] Add bulk message analysis endpoint
+- [ ] Build analytics dashboard for scam trends
 
 ---
 
-## 🎯 Why This Project Matters
+## 👩‍💻 Built By
 
-This project demonstrates:
+**Neha Mhatre**  
+B.E. Computer Engineering | IIT Madras B.S. Data Science  
+[LinkedIn]((http://www.linkedin.com/in/neha-mhatre-693055336)) | 
+[GitHub](https://github.com/neuuu116)
+```
+---
 
-* AI prompt engineering
-* Structured JSON extraction
-* Automation workflow design (n8n)
-* Custom scoring logic
-* Bias-aware evaluation systems
-* Real-world hiring automation use case
+## How To Use This
 
-This is not just a UI project — it is an applied AI decision engine.
+**Step 1:** Go to your rakshak-ai-backend repo on GitHub
 
+**Step 2:** Click on README.md → Edit (pencil icon)
+
+**Step 3:** Delete whatever is there now
+
+**Step 4:** Paste this entire thing
+
+**Step 5:** Fill in 2 things:
+- Your actual LinkedIn URL
+- Check if your file names match what I wrote in Project Structure — if different, update them
 
 

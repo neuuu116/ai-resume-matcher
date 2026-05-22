@@ -1,173 +1,148 @@
-# 🛡️ RakshakAI — Scam Detection Backend System
-A backend API system that classifies digital messages 
-as **Scam** or **Safe** using rule-based text analysis, 
-built with FastAPI and MySQL.
+# FairRank — AI Resume Evaluator
+
+An automated resume-to-job-description matching system built with n8n, GPT-4o-mini, and a custom scoring engine. Evaluates candidates fairly by scoring skills, experience, and education — without any bias from name, gender, or college prestige.
 
 ---
 
-## 🚀 Tech Stack
+## Features
 
-| Layer      | Technology        |
-|------------|-------------------|
-| Backend    | Python, FastAPI   |
-| Database   | MySQL             |
-| API Style  | REST (JSON)       |
-| Tools      | Git, Postman      |
-
----
-
-## 📌 What It Does
-
-- Accepts a message via POST request
-- Analyzes it using rule-based text detection logic
-- Returns classification: `SCAM` or `SAFE`
-- Stores result with confidence score and timestamp in MySQL
-- Built for future ML model integration
+- AI-powered resume parsing via GPT-4o-mini
+- AI-powered job description parsing via GPT-4o-mini
+- Weighted scoring engine (skills 50% + experience 30% + education 20%)
+- Structured JSON output with matched skills, missing skills, and experience gap
+- Bias-safe: no name, photo, gender, or institution ranking involved
+- Frontend fallback logic (runs locally if backend is offline)
 
 ---
 
-## 🏗️ System Architecture
+## Tech Stack
+
+| Layer | Tool |
+|---|---|
+| Automation | n8n (self-hosted / cloud) |
+| AI Models | GPT-4o-mini (OpenAI) |
+| Scoring Logic | Custom JavaScript (n8n Code node) |
+| API Entry Point | n8n Webhook (POST) |
+| Frontend | HTML + TailwindCSS + Vanilla JS |
+
+---
+
+## n8n Workflow — Node Breakdown
+
 ```
-User Request (POST /analyze)
-        ↓
-   FastAPI Router
-        ↓
- Detection Logic Layer
-  (Rule-based analysis)
-        ↓
-   MySQL Database
-  (Logs + Results)
-        ↓
-  JSON Response returned
+Webhook → Resume Extractor → Job Extractor → Scoring Engine → Respond to Webhook
 ```
 
----
+### 1. Webhook
+- Method: `POST`
+- Path: `/fairrank-evaluate`
+- Accepts: `{ resume: string, job_description: string }`
 
-## 📂 Project Structure
-```
-rakshak-ai-backend/
-│
-├── main.py              # FastAPI app entry point
-├── models.py            # Database models
-├── schemas.py           # Pydantic API schemas
-├── detection.py         # Scam detection logic
-├── database.py          # MySQL connection setup
-├── requirements.txt     # Dependencies
-└── README.md
-```
+### 2. Resume Extractor (GPT-4o-mini)
+Extracts structured data from the resume text.
 
----
-
-## ⚙️ API Endpoints
-
-| Method | Endpoint      | Description                    |
-|--------|---------------|--------------------------------|
-| GET    | /             | Health check                   |
-| POST   | /analyze      | Classify a message             |
-| GET    | /logs         | Retrieve all message logs      |
-| GET    | /logs/{id}    | Get specific message result    |
-| DELETE | /logs/{id}    | Delete a log entry             |
-
----
-
-## 📥 Sample Request
+**Output JSON:**
 ```json
-POST /analyze
 {
-  "message": "Congratulations! You won a prize. 
-               Click here to claim now."
+  "skills": [],
+  "years_experience": 0,
+  "domain": "",
+  "education_level": "",
+  "strengths": []
 }
 ```
 
-## 📤 Sample Response
+> ⚠️ **Important:** The prompt uses `{{ $json.resume }}` — make sure your webhook body sends the key as `resume` (not `resume_text`).
+
+### 3. Job Extractor (GPT-4o-mini)
+Extracts structured requirements from the job description.
+
+**Output JSON:**
 ```json
 {
-  "message_id": 101,
-  "classification": "SCAM",
-  "confidence_score": 0.91,
-  "timestamp": "2026-01-15T10:32:00"
+  "required_skills": [],
+  "minimum_experience": 0,
+  "preferred_education": "",
+  "role_type": ""
 }
 ```
 
+### 4. Scoring Engine (JavaScript Code Node)
+Custom weighted scoring logic:
+
+| Criteria | Weight | Logic |
+|---|---|---|
+| Skill Match | 50% | `matched_skills / required_skills * 50` |
+| Experience | 30% | Full if meets minimum; partial if below |
+| Education | 20% | String match between resume and JD education level |
+
+**Output:**
+```json
+{
+  "overall_score": 78,
+  "breakdown": {
+    "skill_score": 40,
+    "experience_score": 30,
+    "education_score": 8
+  },
+  "matched_skills": ["python", "fastapi"],
+  "missing_skills": ["docker", "kubernetes"],
+  "experience_gap": 0
+}
+```
+
+### 5. Respond to Webhook
+Returns the scoring result as the HTTP response to the frontend.
+
 ---
 
-## 🗄️ Database Schema
-```sql
-CREATE TABLE message_logs (
-  id              INT AUTO_INCREMENT PRIMARY KEY,
-  message_text    TEXT NOT NULL,
-  classification  VARCHAR(10),
-  confidence_score FLOAT,
-  timestamp       DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+## Frontend
+
+Built with HTML + TailwindCSS + Vanilla JS.
+
+- User pastes resume text and job description
+- Sends `POST` to the n8n webhook
+- Displays AI score, matched/missing skills
+- **Fallback:** if backend is offline, runs a local keyword match against a hardcoded skill list and shows match percentage
+
+**Webhook URL used:**
 ```
-
----
-
-## 🚀 How To Run Locally
-
-**1. Clone the repo**
-```bash
-git clone https://github.com/neuuu116/rakshak-ai-backend
-cd rakshak-ai-backend
-```
-
-**2. Install dependencies**
-```bash
-pip install -r requirements.txt
-```
-
-**3. Setup MySQL**
-```bash
-# Create database
-CREATE DATABASE rakshakai;
-# Run schema file
-source schema.sql
-```
-
-**4. Run the server**
-```bash
-uvicorn main:app --reload
-```
-
-**5. Test with Postman or browser**
-```
-http://localhost:8000/docs  ← FastAPI auto docs
+https://neuuu116.app.n8n.cloud/webhook/fairrank-evaluate
 ```
 
 ---
 
-## 🔮 Future Improvements
+## Bug Fix Applied
 
-- [ ] Integrate ML classification model
-- [ ] Add authentication (JWT)
-- [ ] Deploy on AWS EC2 / Railway
-- [ ] Add bulk message analysis endpoint
-- [ ] Build analytics dashboard for scam trends
+The original `Resume Extractor` prompt referenced `{{ $json.resume_text }}` but the webhook body sends the key as `resume`. This mismatch caused the node to receive empty input.
+
+**Fix:** Change the prompt variable in Resume Extractor from `{{ $json.resume_text }}` to `{{ $json.resume }}`.
 
 ---
 
-## 👩‍💻 Built By
+## How to Import the Workflow
 
-**Neha Mhatre**  
-B.E. Computer Engineering | IIT Madras B.S. Data Science  
-[LinkedIn]((http://www.linkedin.com/in/neha-mhatre-693055336)) | 
-[GitHub](https://github.com/neuuu116)
-```
+1. Open your n8n instance
+2. Go to **Workflows → Import from File**
+3. Upload `fairrank_workflow.json`
+4. Add your OpenAI API credentials to both AI nodes
+5. Activate the workflow
+6. Update the webhook URL in your frontend's `script.js`
+
 ---
 
-## How To Use This
+## Future Roadmap
 
-**Step 1:** Go to your rakshak-ai-backend repo on GitHub
+- [ ] Replace GPT-4o-mini with Claude Haiku for cost efficiency
+- [ ] Add semantic skill matching (e.g. "ML" matches "machine learning")
+- [ ] Store evaluation history in PostgreSQL
+- [ ] Build a dashboard to compare multiple candidates side by side
+- [ ] Add a confidence score and recommendation label (Strong Match / Partial / Weak)
 
-**Step 2:** Click on README.md → Edit (pencil icon)
+---
 
-**Step 3:** Delete whatever is there now
+## Project Status
 
-**Step 4:** Paste this entire thing
+`v2 — Deployed`
 
-**Step 5:** Fill in 2 things:
-- Your actual LinkedIn URL
-- Check if your file names match what I wrote in Project Structure — if different, update them
-
-
+n8n cloud workflow active. Frontend deployed on Netlify. Webhook live and accepting requests.
